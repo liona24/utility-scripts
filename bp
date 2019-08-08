@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+"""
+This script simplifies printing binary data to stdout in python 3
+
+Usage: bp <Any expression>
+
+Examples:
+
+bp "Hello World"
+
+bp "'\x00' + b'\x01'"
+
+bp "'A' * 10"
+"""
+
+import sys
+import re
+
+# matches any python string 
+pat_py_str = re.compile(r'(.?)((["\'])((\\\3)|[^\3])*?\3)')
+
+def sub_non_bstr(match):
+    """Subs any non bytes object to be a bytes object"""
+    if match.group(1) != 'b':
+        return match.group(1) + 'b' + match.group(2)
+    else:
+        return match.group(0)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('Usage: %s <any expression>' % sys.argv[0], file=sys.stderr)
+        sys.exit(1)
+    s = sys.argv[1]
+    if s.replace('\\"', '').find('"') < 0 and s.replace("\\'", '').find("'") < 0:
+        s = 'b"%s"' % s
+    else:
+        s = pat_py_str.sub(sub_non_bstr, s)
+            
+    sys.stdout.buffer.write(eval(s))
