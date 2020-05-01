@@ -1,0 +1,53 @@
+#!/usr/bin/python3
+"""
+A simple URI encoder / decoder.
+
+By default it replaces the clipboard (requires xclip).
+
+You may also pipe input to stdin.
+"""
+import sys
+import argparse
+import subprocess
+import urllib.parse
+
+
+def quote_clip(quoter, safe):
+    p = subprocess.run(['xclip', '-o', '-selection', 'clipboard'], stdout=subprocess.PIPE)
+    if p.returncode != 0:
+        sys.exit(p.returncode)
+
+    inp = p.stdout.decode("utf-8")
+    out = quoter(inp, safe=safe).encode('utf-8')
+
+    p = subprocess.run(['xclip', '-selection', 'clipboard'], input=out)
+    sys.exit(p.returncode)
+
+
+if __name__ == '__main__':
+    args = argparse.ArgumentParser(description="Encode / Decode URIs or URI components")
+    args.add_argument("-d", "--decode", action="store_true", help="Set this flag to decode instead of encode")
+    args.add_argument("-c", "--component", action="store_true", help="Set this flag to set mode to encode URI component")
+
+    args = args.parse_args()
+
+    if args.decode:
+        quoter = urllib.parse.unquote
+    else:
+        quoter = urllib.parse.quote
+
+    if args.component:
+        safe = '~()*!.\''
+    else:
+        safe = '~@#$&()*!+=:;,.?/\''
+
+    if not sys.stdin.isatty():
+        while True:
+            inp = sys.stdin.read(1024)
+            if len(inp) == 0:
+                break
+
+            inp = inp.decode("utf-8")
+            print(quoter(inp, safe=safe), end="", flush=True)
+    else:
+        quote_clip(quoter, safe)
