@@ -12,13 +12,13 @@ import subprocess
 import urllib.parse
 
 
-def quote_clip(quoter, safe):
+def quote_clip(quoter):
     p = subprocess.run(['xclip', '-o', '-selection', 'clipboard'], stdout=subprocess.PIPE)
     if p.returncode != 0:
         sys.exit(p.returncode)
 
     inp = p.stdout.decode("utf-8")
-    out = quoter(inp, safe=safe).encode('utf-8')
+    out = quoter(inp).encode('utf-8')
 
     p = subprocess.run(['xclip', '-selection', 'clipboard'], input=out)
     sys.exit(p.returncode)
@@ -28,18 +28,26 @@ if __name__ == '__main__':
     args = argparse.ArgumentParser(description="Encode / Decode URIs or URI components")
     args.add_argument("-d", "--decode", action="store_true", help="Set this flag to decode instead of encode")
     args.add_argument("-c", "--component", action="store_true", help="Set this flag to set mode to encode URI component")
+    args.add_argument("-p", "--plus", action="store_true", help="Set this flag to encode/decode spaces as '+'")
 
     args = args.parse_args()
 
-    if args.decode:
-        quoter = urllib.parse.unquote
-    else:
-        quoter = urllib.parse.quote
+    name = "quote"
+    if args.plus:
+        name += "_plus"
 
-    if args.component:
-        safe = '~()*!.\''
-    else:
-        safe = '~@#$&()*!+=:;,.?/\''
+    if args.decode:
+        name = "un" + name
+
+    def quoter(inp):
+        if args.decode:
+            return getattr(urllib.parse, name)(inp)
+        else:
+            if args.component:
+                safe = '~()*!.\''
+            else:
+                safe = '~@#$&()*!+=:;,.?/\''
+            return getattr(urllib.parse, name)(inp, safe=safe)
 
     if not sys.stdin.isatty():
         while True:
@@ -48,6 +56,6 @@ if __name__ == '__main__':
                 break
 
             inp = inp.decode("utf-8")
-            print(quoter(inp, safe=safe), end="", flush=True)
+            print(quoter(inp), end="", flush=True)
     else:
-        quote_clip(quoter, safe)
+        quote_clip(quoter)
