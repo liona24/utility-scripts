@@ -1,4 +1,16 @@
 #!/usr/bin/python3
+"""
+This is a 'quick compiler' for assembler instructions (X86, 64 Bit).
+
+It is useful for quickly inspecting op-codes for certain instructions.
+Requires the keystone framework to be installed.
+
+Example:
+```
+$ ./qc "mov eax, ebx"
+89 d8
+```
+"""
 import keystone
 import sys
 
