@@ -1,0 +1,46 @@
+#!/usr/bin/python3
+r"""This program converts a stream of bytes into a C-style array representation.
+
+Example:
+Input:
+ABC
+
+Output:
+{ '\x41', '\x42', '\x43' }
+"""
+
+import sys
+
+
+def drain_buff(buff):
+    while True:
+        inp = buff.read(1024)
+        if len(inp) == 0:
+            break
+        yield from inp
+
+
+def encode_bytes(bytes):
+    print('{ ', end="")
+
+    try:
+        prev = next(bytes)
+    except StopIteration:
+        print('}')
+        return
+
+    for b in bytes:
+        print(f"'\\x{hex(prev)[2:].rjust(2, '0')}', ", end="")
+        prev = b
+
+    print(f"'\\x{hex(prev)[2:].rjust(2, '0')}' }}")
+
+
+if __name__ == '__main__':
+
+    if len(sys.argv) != 2:
+        buf = sys.stdin.buffer
+        encode_bytes(drain_buff(buf))
+    else:
+        with open(sys.argv[1], 'rb') as f:
+            encode_bytes(drain_buff(f))
