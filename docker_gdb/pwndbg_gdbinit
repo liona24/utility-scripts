@@ -1,0 +1,47 @@
+source /splitmind/gdbinit.py
+source /ret-sync/ext_gdb/sync.py
+
+set context-ghidra if-no-source
+
+python
+import os
+
+import gdb
+import pwndbg
+import splitmind
+
+
+class TmuxSplit(gdb.Command):
+    """Splits the context windows into seperate tmux panes"""
+    def __init__(self):
+        super().__init__("tmux", gdb.COMMAND_USER)
+
+    def invoke(self, _arg, from_tty):
+        if not from_tty:
+            return
+
+        code_source = "code"
+        source_filename = pwndbg.symbol.selected_frame_source_absolute_filename()
+        if not source_filename or not os.path.exists(source_filename):
+            code_source = "ghidra"
+
+        (splitmind.Mind()
+            .tell_splitter(show_titles=True)
+            .tell_splitter(set_title="Main")
+            .right(display="backtrace", size="25%")
+
+            .below(cmd='tty; tail -f /dev/null', size="75%", clearing=False)
+            .tell_splitter(set_title='Input / Output')
+
+            .below(cmd="ipython3", size="55%")
+            .tell_splitter(set_title='Python')
+
+            .above(of="main", display="disasm", size="80%", banner="top")
+            .show(code_source, on="disasm", banner="none")
+            .right(display="stack", size="50%")
+            .above(display="legend", size="25")
+            .show("regs", on="legend")
+        ).build(nobanner=True)
+
+TmuxSplit()
+end

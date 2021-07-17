@@ -1,0 +1,124 @@
+#!/usr/bin/python3
+
+"""
+This scripts is a wrapper around the image specs in ``docker_gdb`` meant for single command
+gdb powerhouse environments.
+"""
+
+import os
+from posixpath import abspath
+import sys
+import shutil
+import shlex
+import tempfile
+import subprocess
+import datetime
+
+def get_build_date(tag):
+    rv = subprocess.run(
+        ["docker", "images", "--format", "{{ .CreatedAt }}", tag],
+        check=True,
+        text=True,
+        capture_output=True
+    )
+
+    created_str = rv.stdout.splitlines(keepends=False)[0].strip()
+    if not created_str:
+        return None
+
+    return datetime.datetime.strptime(created_str, "%Y-%m-%d %H:%M:%S %z %Z")
+
+
+def is_too_old(date):
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    if now - date > datetime.timedelta(days=30):
+        choice = input("Container is older than 30 days. Rebuild? [Y/n] ").strip()
+        if choice in ("Y", "y", "yes"):
+            return True
+
+    return False
+
+
+
+def build_if_needed(typ, base, user, force_update=False, no_cache=False):
+    tag = f"{typ}:latest"
+
+    maybe_build_date = get_build_date(tag)
+    if force_update or maybe_build_date is None or is_too_old(maybe_build_date):
+        print("Building ...", file=sys.stderr)
+        context = os.path.join(os.path.dirname(__file__), "docker_gdb")
+        dockerfile = os.path.join(context, f"{typ}.Dockerfile")
+
+        uuid = os.getuid()
+        ugid = os.getgid()
+
+        build_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        args = [
+            "docker",
+            "build",
+            "-t", typ,
+            "-f", dockerfile,
+            "--build-arg", f"IMAGE={base}",
+            "--build-arg", f"UUID={uuid}",
+            "--build-arg", f"UGID={ugid}",
+            "--build-arg", f"USERNAME={user}",
+        ]
+        if no_cache:
+            args.append("--no-cache")
+
+        args.append(context)
+
+        with tempfile.NamedTemporaryFile("w") as logfile:
+            try:
+                subprocess.run(args, check=True, stdout=logfile, stderr=logfile)
+            except subprocess.SubprocessError:
+                print("Build command failed:", file=sys.stderr)
+                print(" ".join(args), file=sys.stderr)
+
+                log_path = os.path.join(".", f"build_logs_{build_timestamp}.log")
+                shutil.copy(logfile.name, log_path)
+                print("Log file is available at", os.path.abspath(log_path), file=sys.stderr)
+                return None
+
+    return tag
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser("Launch a GDB docker container. This runs a tmux session with a fully configured GDB.")
+    parser.add_argument("-t", "--type", help="Type of GDB enhancement to use", choices={"pwndbg"}, default="pwndbg")
+    parser.add_argument("-e", "--env", help="Base image to use", default="ubuntu:latest")
+    parser.add_argument("-f", "--force-rebuild", help="If set, rebuilds the container, no matter what.", action="store_true")
+    parser.add_argument("--no-cache", help="Disable the cache for builds", action="store_true")
+
+    parser.add_argument("gdb_args", nargs="*")
+    args = parser.parse_args()
+
+    user = args.type
+
+    tag = build_if_needed(args.type, args.env, user, force_update=args.force_rebuild, no_cache=args.no_cache)
+    if tag is None:
+        sys.exit(1)
+
+    docker_args = [
+        "docker",
+        "run",
+        "-i",
+        "-t",
+        "-v", f"{os.path.abspath(os.getcwd())}:/home/{user}/workdir",
+        "--network=host",
+        "--rm",
+        tag,
+    ]
+
+    if len(args.gdb_args) > 0:
+        raise NotImplementedError("Sorry this does not work currently : " + " ".join(args.gdb_args))
+
+        docker_args.extend([
+            "-c", shlex.quote("gdb " + " ".join(args.gdb_args))
+        ])
+
+    os.execvp("docker", docker_args)
