@@ -6,7 +6,6 @@ gdb powerhouse environments.
 """
 
 import os
-from posixpath import abspath
 import sys
 import shutil
 import shlex
