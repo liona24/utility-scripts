@@ -37,10 +37,12 @@ class TmuxSplit(gdb.Command):
             .tell_splitter(set_title='Python')
 
             .above(of="main", display="disasm", size="80%", banner="top")
-            .show(code_source, on="disasm", banner="none")
+
             .right(display="stack", size="50%")
             .above(display="legend", size="25")
             .show("regs", on="legend")
+
+            .below(of="disasm", display=code_source, size="50%", banner="none")
         ).build(nobanner=True)
 
 TmuxSplit()
