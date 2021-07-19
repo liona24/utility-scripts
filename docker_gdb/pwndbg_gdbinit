@@ -1,5 +1,4 @@
 source /splitmind/gdbinit.py
-source /ret-sync/ext_gdb/sync.py
 
 set context-ghidra if-no-source
 

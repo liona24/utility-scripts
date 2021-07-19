@@ -31,9 +31,12 @@ WORKDIR /home/$USERNAME
 
 RUN cp /root/.gdbinit /home/$USERNAME/.gdbinit
 
+COPY _gdbinit /tmp/_gdbinit
 COPY pwndbg_gdbinit /tmp/pwndbg_gdbinit
 RUN cat /tmp/pwndbg_gdbinit >> /home/$USERNAME/.gdbinit && \
     rm /tmp/pwndbg_gdbinit
+RUN cat /tmp/_gdbinit >> /home/$USERNAME/.gdbinit && \
+    rm /tmp/_gdbinit
 
 RUN chown $USERNAME:$USERNAME -R .
 USER $USERNAME
