@@ -1,0 +1,3 @@
+#!/bin/sh
+
+docker run -it --rm --ulimit='stack=-1:-1' -v $PWD:/home/klee/pwd klee/klee:latest
