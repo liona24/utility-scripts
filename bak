@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+"""Create a backup of file(s) in the current directory."""
+import os
+import sys
+import shutil
+
+if len(sys.argv) < 2:
+    sys.exit("Usage: {sys.argv[0]} FILE0 [FILE1 ...]")
+
+errors = False
+for path in sys.argv[1:]:
+    name = os.path.basename(path)
+    newpath = name + ".bak"
+    if os.path.exists(newpath):
+        print(f"Did not create backup file '{newpath}'. File exists!", file=sys.stderr)
+        errors = True
+    else:
+        shutil.copyfile(path, newpath)
+        print(f"Created backup '{newpath}'", file=sys.stderr)
+
+if errors:
+    sys.exit(1)
+
