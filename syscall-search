@@ -1,0 +1,62 @@
+#!/usr/bin/python3
+
+import re
+import subprocess
+
+def parse_syscalls_from_header(path):
+    with open(path, "r") as fin:
+        for line in fin:
+            m = re.search(" (SYS_[^ ]+) ", line)
+            if m:
+                name = m.group(1)
+                yield name
+
+
+def build_index(header_path):
+    source = [ f"#include <sys/syscall.h>" ]
+
+    for syscall in parse_syscalls_from_header(header_path):
+        source.append(f"int XX_{syscall} = {syscall};")
+
+    source = "\n".join(source)
+    result = subprocess.run(["gcc", "-E", "-P", "-"], input=source, text=True, stdout=subprocess.PIPE)
+
+    idx = {}
+    idx_rev = {}
+
+    for line in result.stdout.splitlines():
+        m = re.search("XX_SYS__?([^ ]+) = (\d+);", line)
+        if not m:
+            # some syscalls fail to resolve. Maybe not available on the current kernel??
+            continue
+
+        name = m.group(1)
+        number = int(m.group(2))
+
+        idx[name] = number
+        idx_rev[number] = name
+
+    return idx, idx_rev
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("syscall", help="syscall number / syscall name. Retrieve the other way around", nargs="+")
+    args = parser.parse_args()
+
+    idx, idx_rev = build_index("/usr/include/bits/syscall.h")
+
+    for arg in args.syscall:
+        try:
+            arg = int(arg)
+            result = idx_rev.get(arg, None)
+        except ValueError:
+            result = idx.get(arg, None)
+
+        if result is None:
+            result = "not found"
+
+        print(f"{arg} => {result}")
+
