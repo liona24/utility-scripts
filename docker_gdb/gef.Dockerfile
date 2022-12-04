@@ -9,7 +9,7 @@ ARG UGID=$UUID
 ARG USERNAME=gef
 
 RUN apt-get update --fix-missing && apt-get upgrade -y
-RUN apt-get install -y gdb gdb-multiarch python3 python3-pip git tmux wget curl cmake ipython3 vim strace ltrace build-essential ruby unzip netcat python3-dev
+RUN apt-get install -y gdb gdb-multiarch python3 python3-pip git tmux wget curl cmake ipython3 vim strace ltrace build-essential ruby unzip netcat python3-dev file
 
 RUN mkdir -p /ret-sync/ext_gdb && \
     curl -o /ret-sync/ext_gdb/sync.py https://raw.githubusercontent.com/bootleg/ret-sync/master/ext_gdb/sync.py
@@ -41,6 +41,8 @@ RUN cat /tmp/_gdbinit >> /home/$USERNAME/.gdbinit
 RUN cat /tmp/gef_gdbinit >> /home/$USERNAME/.gdbinit
 
 ENV LC_CTYPE C.UTF-8
+
+RUN python3 /home/$USERNAME/.gdbinit-gef.py --update --dev
 
 WORKDIR /home/$USERNAME/workdir
 ENTRYPOINT [ "tmux" ]
