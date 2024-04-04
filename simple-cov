@@ -1,0 +1,126 @@
+#!/usr/bin/python3
+
+from collections import defaultdict
+import html
+import os
+import subprocess
+import sys
+import tempfile
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("bin", help="binary to display coverage for")
+    parser.add_argument("pc", help="file with instruction pointers that are covered")
+    parser.add_argument("-f", help="file to display", default=None)
+    args = parser.parse_args()
+
+    coverage = defaultdict(set)
+
+    with open(args.pc, "r") as pcfd, subprocess.Popen(
+        ["addr2line", "-C", "-e", args.bin],
+        stdin=pcfd,
+        stdout=subprocess.PIPE) as addr2line:
+
+        for line in addr2line.stdout:
+            line = line.decode("utf-8")
+            if line.startswith("??"):
+                continue
+
+            try:
+                filename, lineno = line.split(":", 1)
+                lineno = int(lineno)
+
+                coverage[filename].add(lineno)
+            except ValueError:
+                pass
+
+    covered_lines = (None, set())
+    most_covered_lines = (None, set())
+    for f, cov in coverage.items():
+        if args.f and os.path.samefile(f, args.f):
+            covered_lines = (f, cov)
+            break
+
+        if len(most_covered_lines[1]) < len(cov):
+            most_covered_lines = (f, cov)
+
+    if args.f and covered_lines[0] is None:
+        print("warning: specified file not found in coverage information!")
+
+    if covered_lines[0] is None:
+        covered_lines = most_covered_lines
+
+    f, cov = covered_lines
+
+    if f is None:
+        sys.exit("nothing to display!")
+
+    print("displaying coverage information for", f)
+    print(len(cov), "lines are covered.")
+
+    head = r"""<html>
+<head>
+<style>
+    .code {
+        font-family: "Lucida Console", Courier, monospace;
+    }
+
+    .lineno {
+        font-family: "Lucida Console", Courier, monospace;
+    }
+
+    .covered {
+        font-weight: bold
+    }
+
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    td {
+        border: none;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
+
+    tr:hover {
+        background-color: #ddd;
+    }
+
+    pre {
+        margin-top: auto;
+        margin-bottom: auto;
+        padding: 3px;
+    }
+</style>
+</head>
+<body>
+<table>
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".html", prefix="simple-cov-", dir=".") as tmp:
+        tmp.write(head)
+
+        with open(f, "r") as fin:
+            for lineno, line in enumerate(fin, 1):
+                line = html.escape(line);
+
+                if lineno in cov:
+                    clazz = "code covered"
+                else:
+                    clazz = "code"
+                tmp.write(f"<tr><td><span class=lineno>{lineno}</span></td><td><pre><span class=\"{clazz}\">{line}</span></pre></td></tr>\n")
+
+        tmp.write("</table>\n</body>\n</html>\n")
+
+        subprocess.run(["xdg-open", tmp.name])
+        input(f"waiting to delete temporary file {tmp.name} ..\n")
+
+
+if __name__ == '__main__':
+    main()
