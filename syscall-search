@@ -25,7 +25,7 @@ def build_index(header_path):
     idx_rev = {}
 
     for line in result.stdout.splitlines():
-        m = re.search("XX_SYS__?([^ ]+) = (\d+);", line)
+        m = re.search(r"XX_SYS__?([^ ]+) = (\d+);", line)
         if not m:
             # some syscalls fail to resolve. Maybe not available on the current kernel??
             continue
